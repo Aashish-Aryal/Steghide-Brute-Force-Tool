@@ -3,9 +3,11 @@
 
 from progressbar import ProgressBar, Percentage, Bar
 from argparse import ArgumentParser
-import commands
+import subprocess
 import os
-
+import sys
+import time
+from datetime import timedelta
 
 class color:
     FAIL = '\033[91m'
@@ -46,27 +48,46 @@ Command line examples:
 def Steg_brute(ifile, dicc):
     i = 0
     ofile = ifile.split('.')[0] + "_flag.txt"
-    nlines = len(open(dicc).readlines())
-    with open(dicc, 'r') as passFile:
+    nlines = len(open(dicc, encoding='latin-1').readlines())
+    with open(dicc, 'r', encoding='latin-1') as passFile:
         pbar = ProgressBar(widgets=[Percentage(), Bar()], maxval=nlines).start()
-        for line in passFile.readlines():
-            password = line.strip('\n')
-            r = commands.getoutput("steghide extract -sf %s -p '%s' -xf %s" % (ifile, password, ofile))
-            if not "no pude extraer" in r and not "could not extract" in r:
-                print(color.GREEN + "\n\n " + r + color.ENDC)
-                print("\n\n [+] " + color.INFO + "Information obtained with password:" + color.GREEN + " %s\n" % password + color.ENDC)
-                if check_file(ofile):
-                    with open(ofile, 'r') as outfile:
-                        for line in outfile.readlines():
-                            print(line)
-                break
+        start_time = time.time()
+        passList = passFile.readlines()
+        for line in passList:
+            try:
+                password = line.strip('\n')
+                if "'" in password:
+                    r = subprocess.getoutput('steghide extract -sf %s -p "%s" -xf %s' % (ifile, password, ofile))
+                else:
+                    r = subprocess.getoutput("steghide extract -sf %s -p '%s' -xf %s" % (ifile, password, ofile))
+                # r = subprocess.getoutput("steghide extract -sf %s -p '%s' -xf %s" % (ifile, password, ofile))
+                if not "no pude extraer" in r and not "could not extract" in r:
+                    print(color.GREEN + "\n\n " + r + color.ENDC)
+                    print("\n\n [+] " + color.INFO + "Information obtained with password:" + color.GREEN + " %s\n" % password + color.ENDC)
+                    if check_file(ofile):
+                        with open(ofile, 'r') as outfile:
+                            for line in outfile.readlines():
+                                print(line)
+                    break
+            except KeyboardInterrupt:
+                print(color.FAIL + ' KeyboardInterrupt at password: ' + password + "\n\n [!] " + color.ENDC + "Exiting...")
+                end_time = time.time()
+                elapsed_time = end_time - start_time
+                formatted_time = str(timedelta(seconds=int(elapsed_time)))
+                print(f"Total time taken: {formatted_time}")
+                print(f"Total passwords tried: {i}")
+                sys.exit(0)
             pbar.update(i + 1)
             i += 1
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        formatted_time = str(timedelta(seconds=int(elapsed_time)))
+        print(f"Total time taken: {formatted_time}")
 
 
 def steghide(ifile, passwd):
     ofile = ifile.split('.')[0] + "_flag.txt"
-    r = commands.getoutput("steghide extract -sf %s -p '%s' -xf %s" % (ifile, passwd, ofile))
+    r = subprocess.getoutput("steghide extract -sf %s -p '%s' -xf %s" % (ifile, passwd, ofile))
     if not "no pude extraer" in r and not "could not extract" in r:
         print(color.GREEN + "\n\n " + r + color.ENDC)
         print("\n [+] " + color.INFO + "Information obtained: \n" + color.ENDC)
@@ -79,10 +100,14 @@ def steghide(ifile, passwd):
 
 
 def main():
+    # argp = ArgumentParser(
+    #         description="Steghide Brute Force Tool",
+    #         usage="./steg_brute.py [options] [-f image_file]",
+    #         version="Steghide Brute Force Tool v" + VERSION)
+    
     argp = ArgumentParser(
             description="Steghide Brute Force Tool",
-            usage="./steg_brute.py [options] [-f image_file]",
-            version="Steghide Brute Force Tool v" + VERSION)
+            usage="./steg_brute.py [options] [-f image_file]")
 
     argp.add_argument('-i', '--info', dest='info', action='store_true',
                       help='Get info of file')
